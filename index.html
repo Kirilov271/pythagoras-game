@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathe-Spiel: Der Satz des Pythagoras</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --panel-bg: rgba(30, 41, 59, 0.85);
+      --accent-color: #38bdf8;
+      --accent-hover: #0284c7;
+      --text-main: #f8fafc;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      color: var(--accent-color);
+      margin-bottom: 5px;
+    }
+
+    .level-badge {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #f59e0b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 20px;
+      border-radius: 14px;
+    }
+
+    .question-box {
+      font-size: 1.1rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    input[type="number"] {
+      width: 160px;
+      padding: 12px 16px;
+      font-size: 1.2rem;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: #0f172a;
+      color: #fff;
+      outline: none;
+      text-align: center;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent-color);
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-submit {
+      background: var(--accent-color);
+      color: #0f172a;
+    }
+
+    .btn-submit:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-next {
+      background: var(--success);
+      color: #fff;
+      display: none;
+    }
+
+    .feedback {
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: 800;
+      min-height: 36px;
+    }
+
+    .feedback.correct { color: var(--success); }
+    .feedback.wrong { color: var(--danger); }
+
+    .formula-hint {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 15px; }
+      header h1 { font-size: 1.5rem; }
+      .input-group { flex-direction: column; width: 100%; }
+      input[type="number"], button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="level-badge" id="levelDisplay">Level 1</div>
+    <h1>Mathe-Challenge: Der Satz des Pythagoras</h1>
+  </header>
+
+  <div class="canvas-container">
+    <canvas id="gameCanvas" width="800" height="450"></canvas>
+  </div>
+
+  <div class="control-panel">
+    <div class="question-box">
+      Berechne die Höhe des Turms (<span style="color:#3b82f6; font-weight:bold;">a in m</span>), bevor der Stickman herunterspringt!
+    </div>
+
+    <div class="input-group">
+      <input type="number" id="answerInput" placeholder="Höhe in m" min="1" step="1">
+      <button class="btn-submit" id="submitBtn">Überprüfen</button>
+      <button class="btn-next" id="nextBtn">Nächster Level ➔</button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+    <div class="formula-hint">Formel: a² + b² = c² &nbsp;|&nbsp; a = √(c² - b²)</div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const answerInput = document.getElementById('answerInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const feedback = document.getElementById('feedback');
+  const levelDisplay = document.getElementById('levelDisplay');
+
+  // Realistic Pythagorean Triples in Meters
+  const triples = [
+    { a: 8, b: 6, c: 10 },
+    { a: 12, b: 5, c: 13 },
+    { a: 15, b: 8, c: 17 },
+    { a: 12, b: 9, c: 15 },
+    { a: 16, b: 12, c: 20 },
+    { a: 24, b: 7, c: 25 }
+  ];
+
+  let currentLevel = 1;
+  let currentProblem = {};
+  let gameState = 'IDLE'; // IDLE, ANIMATING_WIN, ANIMATING_FAIL
+  let animProgress = 0;
+
+  function initRound() {
+    currentProblem = triples[(currentLevel - 1) % triples.length];
+    gameState = 'IDLE';
+    animProgress = 0;
+    levelDisplay.textContent = `Level ${currentLevel}`;
+    feedback.textContent = '';
+    feedback.className = 'feedback';
+    answerInput.value = '';
+    answerInput.disabled = false;
+    submitBtn.style.display = 'inline-block';
+    nextBtn.style.display = 'none';
+    answerInput.focus();
+    drawScene();
+  }
+
+  function drawScene() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Sky
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, 320);
+    skyGradient.addColorStop(0, '#38bdf8');
+    skyGradient.addColorStop(1, '#bae6fd');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, 320);
+
+    // Clouds
+    drawCloud(100, 70, 40);
+    drawCloud(350, 90, 35);
+    drawCloud(580, 50, 45);
+
+    // 2. Grass
+    const grassGradient = ctx.createLinearGradient(0, 320, 0, 450);
+    grassGradient.addColorStop(0, '#4ade80');
+    grassGradient.addColorStop(1, '#15803d');
+    ctx.fillStyle = grassGradient;
+    ctx.fillRect(0, 320, canvas.width, 130);
+
+    // 3. Castle Tower
+    const towerWidth = 100;
+    const towerX = 600;
+    const groundY = 320;
+    const towerHeightPx = 200;
+    const towerY = groundY - towerHeightPx;
+
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(towerX, towerY, towerWidth, towerHeightPx);
+
+    // Castle Battlements
+    ctx.fillStyle = '#475569';
+    for (let i = 0; i < towerWidth; i += 25) {
+      ctx.fillRect(towerX + i, towerY - 12, 15, 12);
+    }
+
+    // 4. Coordinates
+    const poleTopX = towerX;
+    const poleTopY = towerY;
+    const poleBottomX = towerX - 240;
+    const poleBottomY = groundY;
+
+    // 5. Stones on Ground (Distance Kathete b)
+    const stoneCount = currentProblem.b;
+    const stoneSpacing = (poleTopX - poleBottomX) / Math.max(1, stoneCount - 1);
+
+    for (let i = 0; i < stoneCount; i++) {
+      const sx = poleBottomX + i * stoneSpacing;
+      const sy = groundY + 8;
+      ctx.fillStyle = (i % 2 === 0) ? '#94a3b8' : '#cbd5e1';
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, 7, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 6. Hanging Wooden Pole (Hypotenuse c)
+    ctx.save();
+    ctx.strokeStyle = '#854d0e';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(poleTopX, poleTopY);
+    ctx.lineTo(poleBottomX, poleBottomY);
+    ctx.stroke();
+    ctx.restore();
+
+    // 7. Right Triangle Helper Lines
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    
+    // Kathete a (Tower Height)
+    ctx.strokeStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.moveTo(towerX, towerY);
+    ctx.lineTo(towerX, groundY);
+    ctx.stroke();
+
+    // Kathete b (Ground Base)
+    ctx.strokeStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(poleBottomX, groundY);
+    ctx.lineTo(towerX, groundY);
+    ctx.stroke();
+    ctx.restore();
+
+    // 8. Meter Labels (Strictly 'm')
+    ctx.font = 'bold 16px sans-serif';
+    
+    // Kathete a (Height - Blue)
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillText(`a = ? m`, towerX + 15, towerY + towerHeightPx / 2);
+
+    // Kathete b (Ground - Red)
+    ctx.fillStyle = '#991b1b';
+    ctx.fillText(`b = ${currentProblem.b} m (${currentProblem.b} Steine)`, poleBottomX + 40, groundY + 35);
+
+    // Hypotenuse c (Pole - Yellow)
+    ctx.fillStyle = '#713f12';
+    ctx.fillText(`c = ${currentProblem.c} m`, (poleBottomX + towerX) / 2 - 40, (poleTopY + groundY) / 2 - 15);
+
+    // 9. Stickman Physics & Jump Animation
+    let stickmanX = towerX + 35;
+    let stickmanY = towerY - 37;
+
+    if (gameState === 'ANIMATING_WIN') {
+      stickmanY -= Math.abs(Math.sin(animProgress * Math.PI * 4)) * 20;
+    } else if (gameState === 'ANIMATING_FAIL') {
+      const t = animProgress;
+      if (t < 0.4) {
+        stickmanX -= t * 150;
+        stickmanY -= Math.sin(t / 0.4 * Math.PI) * 30;
+      } else {
+        const fallT = (t - 0.4) / 0.6;
+        stickmanX -= 60 + fallT * 30;
+        stickmanY = (towerY - 37) + fallT * fallT * (groundY - towerY + 5);
+      }
+    }
+
+    drawStickman(stickmanX, stickmanY, gameState);
+  }
+
+  function drawCloud(x, y, radius) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.arc(x + radius * 0.7, y - radius * 0.2, radius * 0.7, 0, Math.PI * 2);
+    ctx.arc(x + radius * 1.3, y, radius * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawStickman(x, y, state) {
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 3.5;
+    ctx.fillStyle = '#0f172a';
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(x, y + 10);
+    ctx.lineTo(x, y + 30);
+    ctx.stroke();
+
+    // Arms & Legs
+    ctx.beginPath();
+    if (state === 'ANIMATING_WIN') {
+      ctx.moveTo(x, y + 15); ctx.lineTo(x - 12, y + 2);
+      ctx.moveTo(x, y + 15); ctx.lineTo(x + 12, y + 2);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x - 8, y + 42);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x + 8, y + 42);
+    } else if (state === 'ANIMATING_FAIL') {
+      ctx.moveTo(x, y + 15); ctx.lineTo(x - 15, y - 5);
+      ctx.moveTo(x, y + 15); ctx.lineTo(x + 15, y - 5);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x - 12, y + 45);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x + 12, y + 45);
+    } else {
+      ctx.moveTo(x, y + 15); ctx.lineTo(x - 10, y + 25);
+      ctx.moveTo(x, y + 15); ctx.lineTo(x + 10, y + 25);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x - 8, y + 45);
+      ctx.moveTo(x, y + 30); ctx.lineTo(x + 8, y + 45);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function checkAnswer() {
+    if (gameState !== 'IDLE') return;
+
+    const userVal = parseInt(answerInput.value.trim(), 10);
+
+    if (isNaN(userVal)) {
+      feedback.textContent = 'Bitte eine Zahl eingeben!';
+      feedback.className = 'feedback wrong';
+      return;
+    }
+
+    answerInput.disabled = true;
+
+    if (userVal === currentProblem.a) {
+      feedback.textContent = 'Gewonnen! 🎉';
+      feedback.className = 'feedback correct';
+      gameState = 'ANIMATING_WIN';
+      animateSuccess();
+    } else {
+      gameState = 'ANIMATING_FAIL';
+      animateFailure();
+    }
+  }
+
+  function animateSuccess() {
+    let startTime = null;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      animProgress = (timestamp - startTime) / 1000;
+      drawScene();
+      if (animProgress < 1.2) {
+        requestAnimationFrame(step);
+      } else {
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'inline-block';
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function animateFailure() {
+    let startTime = null;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      animProgress = Math.min(1, (timestamp - startTime) / 1200);
+      drawScene();
+      if (animProgress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        feedback.textContent = 'Spiel beendet!';
+        feedback.className = 'feedback wrong';
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'inline-block';
+        nextBtn.textContent = 'Erneut versuchen ↺';
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  submitBtn.addEventListener('click', checkAnswer);
+  answerInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') checkAnswer();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (feedback.textContent === 'Gewonnen! 🎉') {
+      currentLevel++;
+      nextBtn.textContent = 'Nächster Level ➔';
+    }
+    initRound();
+  });
+
+  initRound();
+</script>
+</body>
+</html>
